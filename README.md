@@ -8,6 +8,7 @@
 - [介绍](#介绍)
 - [安装](#安装)
 - [配置](#配置)
+- [GitHub Release 下载](#github-release-下载)
 - [同步](#同步)
 - [更新记录](#更新记录)
 - [License](#license)
@@ -58,6 +59,15 @@
 ## 配置
 ![输入图片说明](https://images.gitee.com/uploads/images/2021/1028/165110_4fadd758_2189193.png "屏幕截图.png")
 
+## GitHub Release 下载
+
+当前仓库已增加 GitHub Actions 发布流程。
+
+- 当推送形如 `v1.8.7` 的 tag 到 GitHub 时，会自动构建插件 zip
+- 构建产物会自动上传到 GitHub Releases
+- Release 附件文件名为 `private-notes-<version>.zip`
+
+如果是已经存在的 tag，也可以在 GitHub Actions 中手动触发发布流程，重新为对应 tag 生成并上传 zip 附件。
 
 ## 同步
 私人注释 都缓存在 当前用户目录下的 .privateNotes文件夹中,如需同步，可以借助强大的Git
