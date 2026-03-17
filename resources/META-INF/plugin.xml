@@ -1,7 +1,7 @@
 <idea-plugin>
     <id>TheBlind.privateNotes</id>
     <name>Private Notes</name>
-    <version>1.8.7</version>
+    <version>1.8.8</version>
     <vendor email="1043193478@qq.com" url="https://gitee.com/The-Blind/private-notes">TheBlind</vendor>
 
     <description><![CDATA[
@@ -35,6 +35,11 @@
     ]]></description>
 
     <change-notes><![CDATA[
+      <h3>v1.8.8 update</h3>
+      <ul>
+          <li>add GitHub release workflow to build and publish plugin zip artifacts automatically</li>
+          <li>document GitHub release downloads and changelog for repository distribution</li>
+      </ul>
       <h3>v1.8.7 update</h3>
       <ul>
           <li>show the hover note viewer for all private notes, not only truncated ones</li>
