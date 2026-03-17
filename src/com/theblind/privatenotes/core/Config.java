@@ -8,6 +8,8 @@ import java.awt.*;
 import java.io.File;
 
 public class Config {
+    public static final int DEFAULT_HOVER_POPUP_CLOSE_DELAY_MS = 3000;
+
     final String rootPath = System.getProperty("user.home") + File.separator + ".privateNotes";
     final String defaultUserPath = rootPath + File.separator + "default";
 
@@ -45,7 +47,11 @@ public class Config {
      * 最大字符数
      */
     Integer maxCharNum=30;
-    
+
+    /**
+     * 悬浮弹层关闭延迟，单位毫秒
+     */
+    Integer hoverPopupCloseDelayMs = DEFAULT_HOVER_POPUP_CLOSE_DELAY_MS;
 
 
     public String getUserSavePath() {
@@ -106,6 +112,14 @@ public class Config {
 
     public void setMaxCharNum(Integer maxCharNum) {
         this.maxCharNum = maxCharNum;
+    }
+
+    public Integer getHoverPopupCloseDelayMs() {
+        return hoverPopupCloseDelayMs;
+    }
+
+    public void setHoverPopupCloseDelayMs(Integer hoverPopupCloseDelayMs) {
+        this.hoverPopupCloseDelayMs = hoverPopupCloseDelayMs;
     }
 
     public static Color asColor(final String color) {

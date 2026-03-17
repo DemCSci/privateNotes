@@ -12,6 +12,8 @@ import org.jetbrains.annotations.NotNull;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 批量文件修改 监听
@@ -21,7 +23,16 @@ import java.util.List;
 public class PrivateNotesBulkFileListener implements BulkFileListener {
 
     NoteFileService noteFileService = PrivateNotesFactory.getNoteFileService();
+    private final Map<String, byte[]> previousFileContent = new ConcurrentHashMap<>();
 
+    @Override
+    public void before(@NotNull List<? extends VFileEvent> events) {
+        events.stream()
+                .filter(this::needFilter)
+                .filter(VFileContentChangeEvent.class::isInstance)
+                .map(VFileContentChangeEvent.class::cast)
+                .forEach(this::beforeContentChange);
+    }
 
     @Override
     public void after(@NotNull List<? extends VFileEvent> events) {
@@ -37,27 +48,49 @@ public class PrivateNotesBulkFileListener implements BulkFileListener {
     }
 
     private boolean needFilter(VFileEvent fileEvent) {
-        String canonicalPath = fileEvent.getFile().getCanonicalPath();
-        return Files.isDirectory(Paths.get(canonicalPath)) ? false : Files.exists(Paths.get(canonicalPath));
+        if (fileEvent.getFile() == null || fileEvent.getFile().isDirectory()) {
+            return false;
+        }
+        String canonicalPath = fileEvent.getFile().getPath();
+        return Files.exists(Paths.get(canonicalPath));
     }
 
 
     private void afterPropertyChange(VFilePropertyChangeEvent changeEvent) {
         if (changeEvent.isRename()) {
             try {
-                noteFileService.updateFileName(changeEvent.getNewPath(), (String) changeEvent.getOldValue(), PrivateNotesUtil.getBytes((changeEvent).getFile().getInputStream()));
+                noteFileService.updateFileName(changeEvent.getNewPath(), (String) changeEvent.getOldValue());
             } catch (Exception e) {
-                e.printStackTrace();
+                PrivateNotesUtil.errLog(e, null);
             }
         }
     }
 
     private void afterContentChange(VFileContentChangeEvent changeEvent) {
-        String canonicalPath = changeEvent.getFile().getCanonicalPath();
+        String canonicalPath = changeEvent.getFile().getPath();
         try {
-            noteFileService.updateVersion(canonicalPath, PrivateNotesUtil.getBytes(changeEvent.getFile().getInputStream()));
+            byte[] previousBytes = previousFileContent.remove(canonicalPath);
+            if (previousBytes != null && !PrivateNotesDocumentListener.consumeRecentDocumentChange(canonicalPath)) {
+                noteFileService.updateVersion(canonicalPath, previousBytes);
+                return;
+            }
+            noteFileService.updateVersion(canonicalPath);
         } catch (Exception e) {
-            e.printStackTrace();
+            PrivateNotesUtil.errLog(e, null);
+        }
+    }
+
+    private void beforeContentChange(VFileContentChangeEvent changeEvent) {
+        String canonicalPath = changeEvent.getFile().getPath();
+        try {
+            if (!noteFileService.exist(canonicalPath, new java.io.File(canonicalPath))) {
+                previousFileContent.remove(canonicalPath);
+                return;
+            }
+            previousFileContent.put(canonicalPath, Files.readAllBytes(Paths.get(canonicalPath)));
+        } catch (Exception e) {
+            previousFileContent.remove(canonicalPath);
+            PrivateNotesUtil.errLog(e, null);
         }
     }
 }

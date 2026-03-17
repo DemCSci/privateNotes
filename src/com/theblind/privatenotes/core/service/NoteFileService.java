@@ -58,4 +58,6 @@ public interface NoteFileService {
 
     void removeCache(long lastTime);
 
+    String migratePathPrefix(String oldPrefix, String newPrefix) throws Exception;
+
 }

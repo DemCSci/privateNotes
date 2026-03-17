@@ -8,6 +8,8 @@ import java.util.Objects;
 public class NoteFile {
 
     private String version;
+    private String fileId;
+    private String filePath;
     private String fileName;
     private String fileSimpleName;
     private String fileType;
@@ -20,6 +22,22 @@ public class NoteFile {
 
     public void setVersion(String version) {
         this.version = version;
+    }
+
+    public String getFileId() {
+        return fileId;
+    }
+
+    public void setFileId(String fileId) {
+        this.fileId = fileId;
+    }
+
+    public String getFilePath() {
+        return filePath;
+    }
+
+    public void setFilePath(String filePath) {
+        this.filePath = filePath;
     }
 
     public String getFileSimpleName() {

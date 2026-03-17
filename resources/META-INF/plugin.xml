@@ -1,11 +1,11 @@
 <idea-plugin>
     <id>TheBlind.privateNotes</id>
     <name>Private Notes</name>
-    <version>1.5</version>
-    <vendor email="1043193478@qq.com" url="https://gitee.com/Lovxy">TheBlind</vendor>
+    <version>1.8.7</version>
+    <vendor email="1043193478@qq.com" url="https://gitee.com/The-Blind/private-notes">TheBlind</vendor>
 
     <description><![CDATA[
-         <a href="https://gitee.com/Lovxy/private-notes">Private Notes source code and document</a><br>
+         <a href="https://gitee.com/The-Blind/private-notes">Private Notes source code and document</a><br>
         You are still afraid to add "sensitive comments" to the project<br/>
         Is the source code a read-only file and can't add comments<br/>
        <li>Anywhere you want to add comments, press <em> Alt + enter </em> mouse out and click to save</li>
@@ -18,7 +18,7 @@
        <li>The synchronization operation data are cached in the current user directory In the privatenotes folder, if you need to synchronize, you can use the powerful GIT</li>
        <li>Right-click private comments to use common Git commands</li>
        <br/>
-       <a href="https://gitee.com/Lovxy/private-notes">Private Notes 源码和文档</a><br>
+       <a href="https://gitee.com/The-Blind/private-notes">Private Notes 源码和文档</a><br>
        你还在为项目中不敢添加 "敏感注释"!<br/>
        源码是只读文件不能添加注释而烦恼吗？<br/>
        <li>在任何你想加注释的地方 按下<em>Alt + Enter</em>鼠标移出点击即可保存</li>
@@ -35,6 +35,87 @@
     ]]></description>
 
     <change-notes><![CDATA[
+      <h3>v1.8.7 update</h3>
+      <ul>
+          <li>show the hover note viewer for all private notes, not only truncated ones</li>
+          <li>keep the same interactive scrollable viewer for full and shortened inline notes</li>
+      </ul>
+      <h3>v1.8.6 update</h3>
+      <ul>
+          <li>replace hover note popup container with an independent interactive window</li>
+          <li>avoid IntelliJ IDEA 2025 lightweight hover popup limitations when selecting note text</li>
+      </ul>
+      <h3>v1.8.5 update</h3>
+      <ul>
+          <li>replace the hover note tooltip body with a scrollable editor-style text box</li>
+          <li>keep hover popup open while selecting note text inside the editor-style viewer</li>
+      </ul>
+      <h3>v1.8.4 update</h3>
+      <ul>
+          <li>keep the hover popup alive while clicking inside it to select note text</li>
+          <li>request focus for the note text area on click so selection and copy work reliably</li>
+      </ul>
+      <h3>v1.8.3 update</h3>
+      <ul>
+          <li>allow selecting and copying text from the private note hover popup</li>
+          <li>support Cmd/Ctrl+C, Cmd/Ctrl+A and right-click copy in the hover popup</li>
+      </ul>
+      <h3>v1.8.2 update</h3>
+      <ul>
+          <li>avoid runtime failure when editor actions query notes for files without readable local content</li>
+          <li>gracefully skip note lookup when the source file is missing and no content bytes are available</li>
+      </ul>
+      <h3>v1.8.1 update</h3>
+      <ul>
+          <li>show detailed path migration report with migrated and skipped file entries</li>
+          <li>display path migration result in a scrollable dialog</li>
+      </ul>
+      <h3>v1.8.0 update</h3>
+      <ul>
+          <li>store canonical source file path metadata in note files</li>
+          <li>use canonical absolute path hash as the primary note storage key</li>
+          <li>add settings-based path prefix migration for moved projects</li>
+          <li>keep compatibility with legacy storage and previous git-aware storage</li>
+      </ul>
+      <h3>v1.7.1 update</h3>
+      <ul>
+          <li>use git-root-hash plus repo-relative-path-hash for note storage when the file is inside a git repository</li>
+          <li>fallback to canonical file path hash when the file is outside git</li>
+          <li>keep compatibility with both legacy storage and 1.7.0 path-hash storage</li>
+      </ul>
+      <h3>v1.7.0 update</h3>
+      <ul>
+          <li>isolate note storage by source file path to avoid collisions between same-name files</li>
+          <li>auto-migrate legacy note files to the new storage layout on first access</li>
+          <li>fix line relocation direction during multi-line replace and rollback</li>
+          <li>relocate notes using before/after file content when external content changes happen</li>
+      </ul>
+      <h3>v1.6.4 update</h3>
+      <ul>
+          <li>increase default hover popup close delay to 3000ms</li>
+          <li>re-check pointer position before closing hover popup to avoid premature dismissal</li>
+      </ul>
+      <h3>v1.6.3 update</h3>
+      <ul>
+          <li>add configurable hover popup close delay with 1500ms default</li>
+          <li>keep hover popup alive long enough to move the pointer into it</li>
+      </ul>
+      <h3>v1.6.2 update</h3>
+      <ul>
+          <li>make private note hover popup scrollable for long content</li>
+          <li>allow moving the pointer into the popup to scroll its content</li>
+      </ul>
+      <h3>v1.6.1 update</h3>
+      <ul>
+          <li>fix private note hover popup crash on IntelliJ IDEA 2025</li>
+          <li>show full private note content with editor popup instead of awt tooltip</li>
+      </ul>
+      <h3>v1.6 update</h3>
+      <ul>
+          <li>support IntelliJ IDEA 2025 platform</li>
+          <li>fix input method candidate popup in note editor</li>
+          <li>reduce editor lag caused by hot path file IO</li>
+      </ul>
       <h3>v1.5 update</h3>
       <ul>
           <li>fix some bugs</li>
@@ -78,7 +159,7 @@
     </change-notes>
 
     <!-- please see https://www.jetbrains.org/intellij/sdk/docs/basics/getting_started/build_number_ranges.html for description -->
-    <idea-version since-build="193.0"/>
+    <idea-version since-build="253"/>
 
     <!-- please see https://www.jetbrains.org/intellij/sdk/docs/basics/getting_started/plugin_compatibility.html
          on how to target different products -->
@@ -98,15 +179,20 @@
         <editor.linePainter implementation="com.theblind.privatenotes.core.listener.PrivateNotesEditorLinePainter"/>
         <editorFactoryDocumentListener
                 implementation="com.theblind.privatenotes.core.listener.PrivateNotesDocumentListener"/>
+        <editorFactoryMouseMotionListener
+                implementation="com.theblind.privatenotes.core.listener.PrivateNotesEditorMouseHoverListener"/>
+        <editorFactoryMouseListener
+                implementation="com.theblind.privatenotes.core.listener.PrivateNotesEditorMouseHoverListener"/>
+        <notificationGroup id="Private Notes" displayType="BALLOON" isLogByDefault="true"/>
         <!--config-->
         <applicationService
                 serviceImplementation="com.theblind.privatenotes.core.service.impl.ConfigServiceImpl$ConfigPersistenceThroughIdea"/>
 
         <applicationConfigurable
+                id="plugins.privateNotes"
+                groupId="tools"
+                displayName="私人注释"
                 instance="com.theblind.privatenotes.ui.GonfigForm"/>
-
-        <psi.treeChangeListener
-                implementation="com.theblind.privatenotes.core.listener.PrivateNotesFileChangeListener"/>
 
 
     </extensions>

@@ -5,7 +5,11 @@ import cn.hutool.cache.CacheUtil;
 import cn.hutool.cache.impl.TimedCache;
 import com.intellij.openapi.project.Project;
 
-import java.io.*;
+import java.io.BufferedInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 
 
 public class PrivateNotesUtil {
@@ -13,16 +17,14 @@ public class PrivateNotesUtil {
     static final TimedCache<String, Object> timedCache = CacheUtil.newTimedCache(60 * 1000);
 
     public static byte[] getBytes(InputStream inputStream) throws IOException {
-        byte[] bytes = new byte[inputStream.available()];
-        try (BufferedInputStream bufferedInputStream = new BufferedInputStream(inputStream);) {
-            bufferedInputStream.read(bytes);
+        try (BufferedInputStream bufferedInputStream = new BufferedInputStream(inputStream)) {
+            return bufferedInputStream.readAllBytes();
         }
-        return bytes;
     }
 
 
     public static void errLog(Throwable throwable, Project project) {
-        String message = throwable.getMessage();
+        String message = String.valueOf(throwable.getMessage());
         if (!timedCache.containsKey(message)) {
             timedCache.put(message, null);
             try (StringWriter stringWriter = new StringWriter();
@@ -31,7 +33,7 @@ public class PrivateNotesUtil {
                 StringBuffer buffer = stringWriter.getBuffer();
                 IdeaApiUtil.showErrNotification(buffer.toString(), project);
             } catch (IOException e) {
-                //throw new RuntimeException(e);
+                // ignore
             }
         }
 
@@ -39,11 +41,11 @@ public class PrivateNotesUtil {
 
 
     public static void errLog(String message, Project project) {
-            try {
-                IdeaApiUtil.showErrNotification(message, project);
-            } catch (Exception e) {
-                //throw new RuntimeException(e);
-            }
+        try {
+            IdeaApiUtil.showErrNotification(message, project);
+        } catch (Exception e) {
+            // ignore
+        }
     }
 
 
@@ -57,7 +59,7 @@ public class PrivateNotesUtil {
             try {
                 IdeaApiUtil.showInfoNotification(message, project);
             } catch (Exception e) {
-                //throw new RuntimeException(e);
+                // ignore
             }
         }
 

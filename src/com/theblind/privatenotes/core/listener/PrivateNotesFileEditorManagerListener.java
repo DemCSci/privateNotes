@@ -20,10 +20,14 @@ public class PrivateNotesFileEditorManagerListener implements FileEditorManagerL
 
     @Override
     public void selectionChanged(@NotNull FileEditorManagerEvent event) {
+        VirtualFile newFile = event.getNewFile();
+        if (newFile == null || newFile.isDirectory()) {
+            return;
+        }
         try {
-            noteFileService.loadCache(event.getNewFile().getCanonicalPath(), PrivateNotesUtil.getBytes(event.getNewFile().getInputStream()));
+            noteFileService.loadCache(newFile.getPath(), new java.io.File(newFile.getPath()));
         } catch (Exception e) {
-            e.printStackTrace();
+            PrivateNotesUtil.errLog(e, event.getManager().getProject());
         }
     }
 }

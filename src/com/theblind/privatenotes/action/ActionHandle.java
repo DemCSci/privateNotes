@@ -8,6 +8,7 @@ import com.intellij.openapi.ui.popup.JBPopupListener;
 import com.intellij.openapi.ui.popup.LightweightWindowEvent;
 import com.intellij.openapi.util.IconLoader;
 import com.intellij.openapi.vfs.VirtualFile;
+import com.intellij.ui.components.JBTextArea;
 import com.theblind.privatenotes.core.PrivateNotesFactory;
 import com.theblind.privatenotes.core.service.NoteFileService;
 import com.theblind.privatenotes.core.util.IdeaApiUtil;
@@ -15,6 +16,7 @@ import com.theblind.privatenotes.core.util.PrivateNotesUtil;
 import com.theblind.privatenotes.ui.PrivateNotesEditorForm;
 import com.theblind.privatenotes.ui.TextBox;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import javax.swing.*;
 import java.awt.*;
@@ -24,7 +26,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public abstract class ActionHandle {
 
     public static final NoteFileService noteFileService = PrivateNotesFactory.getNoteFileService();
-
+    private static final Icon CLOSE_ICON = IconLoader.getIcon("/icon/close.png", ActionHandle.class);
 
     protected Operate operate;
 
@@ -33,8 +35,12 @@ public abstract class ActionHandle {
     }
 
     public enum Operate {
-        ADD("[Note] 添加"), DEL("[Note] 删除"), EDIT("[Note] 编辑"), WRAP("[Note] 换行"), COPY("[Note] 复制"),DETAILED("[Note] 详细");
-
+        ADD("[Note] 添加"),
+        DEL("[Note] 删除"),
+        EDIT("[Note] 编辑"),
+        WRAP("[Note] 换行"),
+        COPY("[Note] 复制"),
+        DETAILED("[Note] 详细");
 
         Operate(String title) {
             this.title = title;
@@ -45,19 +51,23 @@ public abstract class ActionHandle {
         public String getTitle() {
             return title;
         }
-
     }
 
     public boolean isVisible(@NotNull Project project, Editor editor, VirtualFile virtualFile) {
-        if (virtualFile == null) return false;
-        if (editor == null) return false;
+        if (virtualFile == null || editor == null) {
+            return false;
+        }
+        java.io.File ioFile = new java.io.File(virtualFile.getPath());
+        if (!ioFile.exists()) {
+            return false;
+        }
         try {
-            boolean noteExist = noteFileService.noteExist(virtualFile.getCanonicalPath(),
-                    editor.getDocument().getLineNumber(editor.getCaretModel().getOffset()), IdeaApiUtil.getBytes(virtualFile));
-
-            if (Operate.ADD == operate) return !noteExist;
-
-            return noteExist;
+            boolean noteExist = noteFileService.noteExist(
+                    virtualFile.getPath(),
+                    editor.getDocument().getLineNumber(editor.getCaretModel().getOffset()),
+                    ioFile
+            );
+            return Operate.ADD == operate ? !noteExist : noteExist;
         } catch (Exception e) {
             PrivateNotesUtil.errLog(e, project);
         }
@@ -66,6 +76,38 @@ public abstract class ActionHandle {
 
     public abstract void execute(@NotNull Project project, Editor editor, VirtualFile virtualFile);
 
+    public static void showNoteEditor(@NotNull Project project,
+                                      @NotNull Editor editor,
+                                      @NotNull VirtualFile virtualFile,
+                                      int lineNumber,
+                                      @NotNull String title,
+                                      @Nullable String initialText,
+                                      @Nullable AtomicBoolean openState) {
+        if (openState != null && !openState.compareAndSet(false, true)) {
+            return;
+        }
+
+        PrivateNotesEditorForm editorForm = new PrivateNotesEditorForm();
+        JBTextArea editorArea = editorForm.getEditorArea();
+        if (initialText != null) {
+            editorArea.setText(initialText);
+            editorForm.top();
+        }
+
+        IdeaApiUtil.showPopup(editorForm.getPanel1(), editorArea, title, new JBPopupListener() {
+            @Override
+            public void onClosed(@NotNull LightweightWindowEvent event) {
+                if (openState != null) {
+                    openState.set(false);
+                }
+                try {
+                    noteFileService.saveNote(virtualFile.getPath(), lineNumber, editorArea.getText(), new java.io.File(virtualFile.getPath()));
+                } catch (Exception e) {
+                    PrivateNotesUtil.errLog(e, project);
+                }
+            }
+        }, editor, true, CLOSE_ICON);
+    }
 
     public static class AddActionHandle extends ActionHandle {
 
@@ -77,75 +119,42 @@ public abstract class ActionHandle {
 
         @Override
         public void execute(@NotNull Project project, Editor editor, VirtualFile virtualFile) {
-            if (OPEN.get()) {
+            if (editor == null || virtualFile == null) {
                 return;
             }
-            OPEN.set(true);
-            PrivateNotesEditorForm remarkEditor = new PrivateNotesEditorForm();
-            JScrollPane scrollPane = remarkEditor.getScrollPane();
-            JEditorPane editorPane = remarkEditor.getEditorPane1();
-            Integer selLineNumber = IdeaApiUtil.getSelLineNumber(editor);
-            IdeaApiUtil.showBalloon(remarkEditor.getPanel1(), operate.getTitle(), new JBPopupListener() {
-                @Override
-                public void onClosed(@NotNull LightweightWindowEvent event) {
-                    try {
-                        OPEN.set(false);
-                        noteFileService.saveNote(virtualFile.getCanonicalPath(), selLineNumber
-                                , editorPane.getText(), IdeaApiUtil.getBytes(virtualFile));
-                    } catch (Exception e) {
-                        PrivateNotesUtil.errLog(e, project);
-                    }
-                }
-            }, editor);
-
-            editorPane.requestFocus();
+            showNoteEditor(project, editor, virtualFile, IdeaApiUtil.getSelLineNumber(editor), operate.getTitle(), null, OPEN);
         }
     }
 
-
     public static class EditActionHandle extends ActionHandle {
         static AtomicBoolean OPEN = new AtomicBoolean(false);
+
         public EditActionHandle() {
             super(Operate.EDIT);
         }
 
         @Override
         public void execute(@NotNull Project project, Editor editor, VirtualFile virtualFile) {
-            if (OPEN.get()) {
+            if (editor == null || virtualFile == null) {
                 return;
             }
-            OPEN.set(true);
-            PrivateNotesEditorForm remarkEditor = new PrivateNotesEditorForm();
-            JScrollPane scrollPane = remarkEditor.getScrollPane();
-            JEditorPane editorPane = remarkEditor.getEditorPane1();
-            Integer selLineNumber = IdeaApiUtil.getSelLineNumber(editor);
+            int lineNumber = IdeaApiUtil.getSelLineNumber(editor);
             try {
-                editorPane.setText(noteFileService.getNote(virtualFile.getCanonicalPath(),
-                        selLineNumber,
-                        IdeaApiUtil.getBytes(virtualFile)));
+                showNoteEditor(
+                        project,
+                        editor,
+                        virtualFile,
+                        lineNumber,
+                        Operate.EDIT.getTitle(),
+                        noteFileService.getNote(virtualFile.getPath(), lineNumber, new java.io.File(virtualFile.getPath())),
+                        OPEN
+                );
             } catch (Exception e) {
                 PrivateNotesUtil.errLog(e, project);
+                OPEN.set(false);
             }
-
-            IdeaApiUtil.showBalloon(remarkEditor.getPanel1(), Operate.EDIT.getTitle(), new JBPopupListener() {
-                @Override
-                public void onClosed(@NotNull LightweightWindowEvent event) {
-                    try {
-                        OPEN.set(false);
-                        noteFileService.saveNote(virtualFile.getCanonicalPath(),
-                                selLineNumber, editorPane.getText(), IdeaApiUtil.getBytes(virtualFile));
-                    } catch (Exception e) {
-                        PrivateNotesUtil.errLog(e, project);
-                    }
-                }
-            }, editor);
-
-            editorPane.requestFocus();
-            remarkEditor.top();
-
         }
     }
-
 
     public static class DetailedActionHandle extends ActionHandle {
 
@@ -155,36 +164,38 @@ public abstract class ActionHandle {
 
         @Override
         public void execute(@NotNull Project project, Editor editor, VirtualFile virtualFile) {
+            if (editor == null || virtualFile == null) {
+                return;
+            }
 
-            Integer selLineNumber = IdeaApiUtil.getSelLineNumber(editor);
-            TextBox textBox = new TextBox(project,virtualFile,selLineNumber);
-            JEditorPane editorPane1 = textBox.getEditorPane1();
+            int lineNumber = IdeaApiUtil.getSelLineNumber(editor);
+            TextBox textBox = new TextBox();
+            JBTextArea editorArea = textBox.getEditorArea();
             try {
-                editorPane1.setText(noteFileService.getNote(virtualFile.getCanonicalPath(),
-                        selLineNumber,
-                        IdeaApiUtil.getBytes(virtualFile)));
+                editorArea.setText(noteFileService.getNote(virtualFile.getPath(), lineNumber, new java.io.File(virtualFile.getPath())));
             } catch (Exception e) {
                 PrivateNotesUtil.errLog(e, project);
             }
 
-            textBox.getNav().addActionListener(event -> IdeaApiUtil.to(project,virtualFile,selLineNumber));
-
-            textBox.getRefresh().addActionListener(event ->{
+            textBox.getNav().addActionListener(event -> IdeaApiUtil.to(project, virtualFile, lineNumber));
+            textBox.getRefresh().addActionListener(event -> {
                 try {
-                    editorPane1.setText(noteFileService.getNote(virtualFile.getCanonicalPath(),
-                            selLineNumber,
-                            IdeaApiUtil.getBytes(virtualFile)));
+                    editorArea.setText(noteFileService.getNote(virtualFile.getPath(), lineNumber, new java.io.File(virtualFile.getPath())));
                 } catch (Exception e) {
                     PrivateNotesUtil.errLog(e, project);
                 }
             });
 
-            editorPane1.setEditable(false);
-            editorPane1.setSelectionStart(0);
-            editorPane1.setSelectionEnd(0);
+            editorArea.setSelectionStart(0);
+            editorArea.setSelectionEnd(0);
             textBox.getPanel().setMinimumSize(new Dimension(200, 200));
-            IdeaApiUtil.showComponent(  String.format("[Note] %s %s行",virtualFile.getName(),selLineNumber),textBox.getPanel(), editorPane1,editor, IconLoader.findIcon("/icon/close.png"));
-
+            IdeaApiUtil.showComponent(
+                    String.format("[Note] %s %s行", virtualFile.getName(), lineNumber),
+                    textBox.getPanel(),
+                    editorArea,
+                    editor,
+                    CLOSE_ICON
+            );
         }
     }
 
@@ -195,13 +206,16 @@ public abstract class ActionHandle {
 
         @Override
         public void execute(@NotNull Project project, Editor editor, VirtualFile virtualFile) {
-
+            if (editor == null || virtualFile == null) {
+                return;
+            }
             try {
-                CopyPasteManager.getInstance().setContents(new StringSelection(noteFileService.getNote(virtualFile.getPath(), IdeaApiUtil.getSelLineNumber(editor), IdeaApiUtil.getBytes(virtualFile))));
+                CopyPasteManager.getInstance().setContents(new StringSelection(
+                        noteFileService.getNote(virtualFile.getPath(), IdeaApiUtil.getSelLineNumber(editor), new java.io.File(virtualFile.getPath()))
+                ));
             } catch (Exception e) {
                 PrivateNotesUtil.errLog(e, project);
             }
-
         }
     }
 
@@ -213,9 +227,11 @@ public abstract class ActionHandle {
 
         @Override
         public void execute(@NotNull Project project, Editor editor, VirtualFile virtualFile) {
-
+            if (editor == null || virtualFile == null) {
+                return;
+            }
             try {
-                noteFileService.delNote(virtualFile.getCanonicalPath(), IdeaApiUtil.getSelLineNumber(editor), IdeaApiUtil.getBytes(virtualFile));
+                noteFileService.delNote(virtualFile.getPath(), IdeaApiUtil.getSelLineNumber(editor), new java.io.File(virtualFile.getPath()));
             } catch (Exception e) {
                 PrivateNotesUtil.errLog(e, project);
             }
@@ -230,20 +246,14 @@ public abstract class ActionHandle {
 
         @Override
         public void execute(@NotNull Project project, Editor editor, VirtualFile virtualFile) {
-            PrivateNotesEditorForm remarkEditor = new PrivateNotesEditorForm();
-
-            JEditorPane editorPane = remarkEditor.getEditorPane1();
-            Integer selLineNumber = IdeaApiUtil.getSelLineNumber(editor);
-
+            if (editor == null || virtualFile == null) {
+                return;
+            }
             try {
-                noteFileService.wrapDownNote(virtualFile.getCanonicalPath(), selLineNumber
-                        , IdeaApiUtil.getBytes(virtualFile));
+                noteFileService.wrapDownNote(virtualFile.getPath(), IdeaApiUtil.getSelLineNumber(editor), new java.io.File(virtualFile.getPath()));
             } catch (Exception e) {
                 PrivateNotesUtil.errLog(e, project);
             }
-            editorPane.requestFocus();
         }
     }
-
-
 }

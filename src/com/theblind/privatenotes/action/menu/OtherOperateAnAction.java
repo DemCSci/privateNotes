@@ -25,13 +25,21 @@ public class OtherOperateAnAction extends AnAction {
     }
 
     @Override
+    public @NotNull ActionUpdateThread getActionUpdateThread() {
+        return ActionUpdateThread.BGT;
+    }
+
+    @Override
     public void update(@NotNull AnActionEvent anActionEvent) {
 
         super.update(anActionEvent);
         Project project = CommonDataKeys.PROJECT.getData(anActionEvent.getDataContext());
         Editor editor = CommonDataKeys.EDITOR.getData(anActionEvent.getDataContext());
         VirtualFile virtualFile = CommonDataKeys.VIRTUAL_FILE.getData(anActionEvent.getDataContext());
-        String title = ActionHandle.Operate.EDIT.getTitle();
+        if (project == null || editor == null || virtualFile == null) {
+            anActionEvent.getPresentation().setEnabledAndVisible(false);
+            return;
+        }
         anActionEvent.getPresentation().setEnabledAndVisible(editHandle.isVisible(project, editor, virtualFile));
 
     }

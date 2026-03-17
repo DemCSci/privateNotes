@@ -1,7 +1,5 @@
 package com.theblind.privatenotes.core.listener;
 
-import cn.hutool.cache.CacheUtil;
-import cn.hutool.cache.impl.TimedCache;
 import cn.hutool.core.util.StrUtil;
 import com.intellij.openapi.editor.EditorLinePainter;
 import com.intellij.openapi.editor.LineExtensionInfo;
@@ -34,18 +32,19 @@ public class PrivateNotesEditorLinePainter extends EditorLinePainter {
     @Nullable
     @Override
     public Collection<LineExtensionInfo> getLineExtensions(@NotNull Project project, @NotNull VirtualFile virtualFile, int i) {
+        if (virtualFile.isDirectory()) {
+            return null;
+        }
         Config config = configService.get();
 
         List<LineExtensionInfo> result = new ArrayList<>();//✍
         try {
-            String note = noteFileService.getNote(virtualFile.getPath(), i, IdeaApiUtil.getBytes(virtualFile));
+            String note = noteFileService.getNote(virtualFile.getPath(), i, new java.io.File(virtualFile.getPath()));
             if (Objects.isNull(note)) {
                 return null;
             }
             Integer maxCharNum = config.getMaxCharNum();
-            if (note.length() > maxCharNum) {
-                note = StrUtil.builder().append(note, 0, maxCharNum).append("...").toString();
-            }
+            note = buildVisibleNote(note, maxCharNum);
 
             result.add(new LineExtensionInfo(String.format(" %s ", config.getMark()),
                     new TextAttributes(null, null, Config.asColor(config.getMarkColor()), null, Font.PLAIN)));
@@ -58,4 +57,13 @@ public class PrivateNotesEditorLinePainter extends EditorLinePainter {
         return null;
     }
 
+    public static String buildVisibleNote(String note, Integer maxCharNum) {
+        if (note == null) {
+            return null;
+        }
+        if (maxCharNum == null || maxCharNum < 1 || note.length() <= maxCharNum) {
+            return note;
+        }
+        return StrUtil.builder().append(note, 0, maxCharNum).append("...").toString();
+    }
 }

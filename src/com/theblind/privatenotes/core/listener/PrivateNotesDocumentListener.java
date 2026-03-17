@@ -1,7 +1,5 @@
 package com.theblind.privatenotes.core.listener;
 
-import cn.hutool.core.math.MathUtil;
-import cn.hutool.core.util.NumberUtil;
 import cn.hutool.core.util.StrUtil;
 import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.editor.event.DocumentEvent;
@@ -13,13 +11,15 @@ import com.intellij.util.DocumentUtil;
 import com.theblind.privatenotes.core.NoteFile;
 import com.theblind.privatenotes.core.PrivateNotesFactory;
 import com.theblind.privatenotes.core.service.NoteFileService;
-import com.theblind.privatenotes.core.util.IdeaApiUtil;
-import com.theblind.privatenotes.core.util.PrivateNotesUtil;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.Objects;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class PrivateNotesDocumentListener implements DocumentListener {
+
+    private static final long RECENT_CHANGE_WINDOW_MS = 10_000L;
+    private static final Map<String, Long> RECENT_DOCUMENT_CHANGES = new ConcurrentHashMap<>();
 
     NoteFileService noteFileService = PrivateNotesFactory.getNoteFileService();
 
@@ -27,73 +27,70 @@ public class PrivateNotesDocumentListener implements DocumentListener {
     public void beforeDocumentChange(@NotNull DocumentEvent event) {
         try {
             Document document = event.getDocument();
-            int offset = event.getOffset();
-            int lineNumber1 = document.getLineNumber(offset);
-
-            CharSequence newFragment = event.getNewFragment();
-            CharSequence oldFragment = event.getOldFragment();
-            String newStr = String.valueOf(newFragment);
-            String oldStr = String.valueOf(oldFragment);
-
-            int c1 = warpCount(newStr);
-            int c2 = warpCount(oldStr);
-            if (c1 != 0 || c2 != 0) {
-
-                TextRange lineTextRange = DocumentUtil.getLineTextRange(document, lineNumber1);
-                int warpLineNumber = warpLineNumber(newStr, oldStr, lineNumber1, lineTextRange, offset);
-                VirtualFile virtualFile = FileDocumentManager.getInstance().getFile(document);
-                if (Objects.isNull(virtualFile)) {
-                    return;
-                }
-
-                String canonicalPath = virtualFile.getCanonicalPath();
-                NoteFile noteFile = noteFileService.get(canonicalPath, IdeaApiUtil.getBytes(virtualFile));
-                if (Objects.isNull(noteFile)) {
-                    return;
-                }
-
-                if (canWrapDown(newStr, oldStr)) {
-                    int warpCount = (int) NumberUtil.sub(c1, c2);
-                    noteFileService.continueToWrapDown(canonicalPath, warpLineNumber, warpCount
-                            , IdeaApiUtil.getBytes(virtualFile));
-
-                } else {
-                    int warpCount = (int) NumberUtil.sub(c2, c1);
-                    noteFileService.continueToWrapUp(canonicalPath, warpLineNumber, warpCount
-                            , IdeaApiUtil.getBytes(virtualFile));
-                }
-
+            if (document.isInBulkUpdate()) {
+                return;
             }
-        } catch (Exception e) {
-            //PrivateNotesUtil.errLog(e, null);
+
+            VirtualFile virtualFile = FileDocumentManager.getInstance().getFile(document);
+            if (virtualFile == null || virtualFile.isDirectory()) {
+                return;
+            }
+            markDocumentChange(virtualFile.getPath());
+
+            String newStr = String.valueOf(event.getNewFragment());
+            String oldStr = String.valueOf(event.getOldFragment());
+            int newLines = wrapCount(newStr);
+            int oldLines = wrapCount(oldStr);
+            int lineDelta = newLines - oldLines;
+            if (lineDelta == 0) {
+                return;
+            }
+
+            int offset = event.getOffset();
+            int lineNumber = document.getLineNumber(offset);
+            TextRange lineTextRange = DocumentUtil.getLineTextRange(document, lineNumber);
+            int wrapLineNumber = wrapLineNumber(newStr, oldStr, lineNumber, lineTextRange, offset);
+            String filePath = virtualFile.getPath();
+            NoteFile noteFile = noteFileService.get(filePath, new java.io.File(filePath));
+            if (noteFile == null) {
+                return;
+            }
+
+            if (lineDelta > 0) {
+                noteFileService.continueToWrapDown(filePath, wrapLineNumber, Math.abs(lineDelta), new java.io.File(filePath));
+            } else {
+                noteFileService.continueToWrapUp(filePath, wrapLineNumber, Math.abs(lineDelta), new java.io.File(filePath));
+            }
+        } catch (Exception ignored) {
         }
     }
 
-
-    boolean canWrapDown(String newText, String oldText) {
-        return newText.length() > oldText.length() ? true : false;
+    static void markDocumentChange(String path) {
+        RECENT_DOCUMENT_CHANGES.put(path, System.currentTimeMillis());
     }
 
-
-    int warpCount(String text) {
-        int count = StrUtil.count(text, "\n");
-        if (count == 0) return count;
-        return count;
+    static boolean consumeRecentDocumentChange(String path) {
+        Long lastChangeTime = RECENT_DOCUMENT_CHANGES.remove(path);
+        return lastChangeTime != null && System.currentTimeMillis() - lastChangeTime <= RECENT_CHANGE_WINDOW_MS;
     }
 
-    int warpLineNumber(String newText, String oldText, int lineNumber, TextRange lineTextRange, Integer offset) {
-        int warpLineNumber = lineNumber;
-        if (newText.length() < oldText.length()) warpLineNumber += 1;
-        else if (offset < lineTextRange.getEndOffset()) {
-            return warpLineNumber;
+    int wrapCount(String text) {
+        return StrUtil.count(text, "\n");
+    }
+
+    int wrapLineNumber(String newText, String oldText, int lineNumber, TextRange lineTextRange, int offset) {
+        int wrapLineNumber = lineNumber;
+        if (newText.length() < oldText.length()) {
+            wrapLineNumber += 1;
+        } else if (offset < lineTextRange.getEndOffset()) {
+            return wrapLineNumber;
         } else if (lineTextRange.getLength() == 0) {
-            return warpLineNumber;
+            return wrapLineNumber;
         } else if (offset == lineTextRange.getEndOffset()) {
-            return warpLineNumber + 1;
+            return wrapLineNumber + 1;
         } else if (!StrUtil.endWith(newText, "\n")) {
-            return warpLineNumber + 1;
+            return wrapLineNumber + 1;
         }
-        return warpLineNumber;
+        return wrapLineNumber;
     }
-
 }
