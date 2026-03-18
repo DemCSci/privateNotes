@@ -7,7 +7,6 @@ import cn.hutool.core.io.file.FileReader;
 import cn.hutool.core.io.file.FileWriter;
 import cn.hutool.core.map.MapUtil;
 import cn.hutool.core.util.StrUtil;
-import cn.hutool.crypto.digest.MD5;
 import cn.hutool.json.JSONUtil;
 import com.theblind.privatenotes.core.Config;
 import com.theblind.privatenotes.core.NoteFile;
@@ -17,11 +16,14 @@ import com.theblind.privatenotes.core.service.NoteFileService;
 import com.theblind.privatenotes.core.util.JsonUtil;
 
 import java.io.File;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HexFormat;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -31,12 +33,12 @@ import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
+import java.security.GeneralSecurityException;
+import java.security.MessageDigest;
 
 public class NoteFileServiceImpl implements NoteFileService {
 
     ConfigService configService = PrivateNotesFactory.getConfigService();
-
-    MD5 md5 = MD5.create();
 
     Map<String, String> versionCache = new ConcurrentHashMap<>();
 
@@ -129,7 +131,7 @@ public class NoteFileServiceImpl implements NoteFileService {
         }
 
         if (file.exists()) {
-            version = md5.digestHex16(file);
+            version = md5Hex16(file);
         } else {
             byte[] contentBytes = findContentBytes(params);
             if (contentBytes == null) {
@@ -730,11 +732,11 @@ public class NoteFileServiceImpl implements NoteFileService {
     }
 
     private String generateVersion(byte[] content) {
-        return md5.digestHex16(content);
+        return md5Hex16(content);
     }
 
     private String generateFileId(File file) throws Exception {
-        return "f" + md5.digestHex16(file.getCanonicalPath().getBytes(StandardCharsets.UTF_8));
+        return "f" + md5Hex16(file.getCanonicalPath().getBytes(StandardCharsets.UTF_8));
     }
 
     private String generateLegacyGitFileId(File file) throws Exception {
@@ -742,9 +744,9 @@ public class NoteFileServiceImpl implements NoteFileService {
         if (gitRoot == null) {
             return null;
         }
-        String gitRootHash = md5.digestHex16(gitRoot.getCanonicalPath().getBytes(StandardCharsets.UTF_8));
+        String gitRootHash = md5Hex16(gitRoot.getCanonicalPath().getBytes(StandardCharsets.UTF_8));
         String relativePath = normalizePath(gitRoot.toPath().relativize(file.getCanonicalFile().toPath()).toString());
-        String relativePathHash = md5.digestHex16(relativePath.getBytes(StandardCharsets.UTF_8));
+        String relativePathHash = md5Hex16(relativePath.getBytes(StandardCharsets.UTF_8));
         return "g" + gitRootHash + relativePathHash;
     }
 
@@ -757,8 +759,8 @@ public class NoteFileServiceImpl implements NoteFileService {
         if (expectedStorage.exists()) {
             return expectedStorage;
         }
-        File legacyGitStorage = getLegacyGitAbsolutePath(config, file, version).toFile();
-        if (legacyGitStorage.exists()) {
+        File legacyGitStorage = tryResolveLegacyGitStorage(config, file, version);
+        if (legacyGitStorage != null && legacyGitStorage.exists()) {
             return legacyGitStorage;
         }
         File legacyStorage = getLegacyAbsolutePath(config, file.getName(), version).toFile();
@@ -766,6 +768,14 @@ public class NoteFileServiceImpl implements NoteFileService {
             return legacyStorage;
         }
         return expectedStorage;
+    }
+
+    private File tryResolveLegacyGitStorage(Config config, File file, String version) {
+        try {
+            return getLegacyGitAbsolutePath(config, file, version).toFile();
+        } catch (Exception ignored) {
+            return null;
+        }
     }
 
     private boolean populateIdentity(NoteFile noteFile, File file, String version) throws Exception {
@@ -838,6 +848,41 @@ public class NoteFileServiceImpl implements NoteFileService {
 
     private String normalizePath(String path) {
         return path.replace(File.separatorChar, '/');
+    }
+
+    private String md5Hex16(File file) throws Exception {
+        MessageDigest digest = createMd5Digest();
+        try (InputStream inputStream = Files.newInputStream(file.toPath())) {
+            byte[] buffer = new byte[8192];
+            int read;
+            while ((read = inputStream.read(buffer)) != -1) {
+                digest.update(buffer, 0, read);
+            }
+        }
+        return toMd5Hex16(digest.digest());
+    }
+
+    private String md5Hex16(byte[] content) {
+        MessageDigest digest = createMd5Digest();
+        digest.update(content);
+        return toMd5Hex16(digest.digest());
+    }
+
+    private MessageDigest createMd5Digest() {
+        try {
+            return MessageDigest.getInstance("MD5", "SUN");
+        } catch (GeneralSecurityException ignored) {
+            try {
+                return MessageDigest.getInstance("MD5");
+            } catch (GeneralSecurityException e) {
+                throw new IllegalStateException("MD5 digest is not available", e);
+            }
+        }
+    }
+
+    private String toMd5Hex16(byte[] digestBytes) {
+        String fullMd5 = HexFormat.of().formatHex(digestBytes);
+        return fullMd5.substring(8, 24);
     }
 
     private String normalizeMigrationPrefix(String prefix) {

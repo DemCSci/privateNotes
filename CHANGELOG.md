@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.8.9
+
+- 替换不稳定的 Hutool 16 位 MD5 计算逻辑，避免在 IntelliJ IDEA 2025 中触发 `ArrayIndexOutOfBoundsException`
+- 旧 Git 兼容存储查找失败时不再影响私人注释可见性判断
+
 ## v1.8.8
 
 - 增加 GitHub Release 自动发布流程
