@@ -1,7 +1,7 @@
 <idea-plugin>
     <id>TheBlind.privateNotes</id>
     <name>Private Notes</name>
-    <version>1.8.9</version>
+    <version>1.8.10</version>
     <vendor email="1043193478@qq.com" url="https://gitee.com/The-Blind/private-notes">TheBlind</vendor>
 
     <description><![CDATA[
@@ -35,6 +35,11 @@
     ]]></description>
 
     <change-notes><![CDATA[
+      <h3>v1.8.10 update</h3>
+      <ul>
+          <li>publish a clean GitHub release after correcting the mis-tagged v1.8.9 release flow</li>
+          <li>keep the MD5 compatibility fix and release automation in a correctly versioned build</li>
+      </ul>
       <h3>v1.8.9 update</h3>
       <ul>
           <li>replace unstable Hutool 16-char MD5 calls with a controlled MD5 implementation</li>

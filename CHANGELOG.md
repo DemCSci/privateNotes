@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.8.10
+
+- 重新发布正确的 GitHub Release 版本，避免 `v1.8.9` 因错误 tag 指向旧提交而生成 `1.8.8` 资产
+- 保留 `1.8.9` 中的 MD5 兼容性修复
+
 ## v1.8.9
 
 - 替换不稳定的 Hutool 16 位 MD5 计算逻辑，避免在 IntelliJ IDEA 2025 中触发 `ArrayIndexOutOfBoundsException`
