@@ -9,7 +9,9 @@ import com.theblind.privatenotes.core.service.NoteFileService;
 import com.theblind.privatenotes.core.util.PrivateNotesUtil;
 import org.jetbrains.annotations.NotNull;
 
+import java.nio.file.InvalidPathException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
@@ -51,8 +53,12 @@ public class PrivateNotesBulkFileListener implements BulkFileListener {
         if (fileEvent.getFile() == null || fileEvent.getFile().isDirectory()) {
             return false;
         }
-        String canonicalPath = fileEvent.getFile().getPath();
-        return Files.exists(Paths.get(canonicalPath));
+        try {
+            Path path = Paths.get(fileEvent.getFile().getPath());
+            return Files.isRegularFile(path) && Files.isReadable(path);
+        } catch (InvalidPathException e) {
+            return false;
+        }
     }
 
 

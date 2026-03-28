@@ -7,7 +7,7 @@ plugins {
 }
 
 group = "com.theblind.privatenotes"
-version = "1.8.11"
+version = "1.8.12"
 
 repositories {
     mavenCentral()

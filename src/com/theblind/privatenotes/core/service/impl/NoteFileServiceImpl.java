@@ -16,6 +16,7 @@ import com.theblind.privatenotes.core.service.NoteFileService;
 import com.theblind.privatenotes.core.util.JsonUtil;
 
 import java.io.File;
+import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -130,10 +131,17 @@ public class NoteFileServiceImpl implements NoteFileService {
             return version;
         }
 
-        if (file.exists()) {
-            version = md5Hex16(file);
+        byte[] contentBytes = findContentBytes(params);
+        if (canDigestFromFile(file)) {
+            try {
+                version = md5Hex16(file);
+            } catch (IOException ignored) {
+                if (contentBytes == null) {
+                    return versionCache.get(canonicalPath);
+                }
+                version = generateVersion(contentBytes);
+            }
         } else {
-            byte[] contentBytes = findContentBytes(params);
             if (contentBytes == null) {
                 return versionCache.get(canonicalPath);
             }
@@ -330,6 +338,9 @@ public class NoteFileServiceImpl implements NoteFileService {
         }
 
         String version = generateVersion(true, file);
+        if (StrUtil.isBlank(version)) {
+            return;
+        }
         versionCache.put(canonicalPath, version);
 
         NoteFile noteFile = readNoteFile(oldStorage);
@@ -516,6 +527,9 @@ public class NoteFileServiceImpl implements NoteFileService {
         String canonicalPath = file.getCanonicalPath();
         String previousVersion = generateVersion(previousBytes);
         String currentVersion = generateVersion(true, file);
+        if (StrUtil.isBlank(currentVersion)) {
+            return;
+        }
         versionCache.put(canonicalPath, currentVersion);
 
         File oldStorage = resolveStorageFile(config, file, previousVersion, getAbsolutePath(config, file, previousVersion).toFile());
@@ -529,7 +543,7 @@ public class NoteFileServiceImpl implements NoteFileService {
         }
 
         populateIdentity(noteFile, file, previousVersion);
-        relocateNotes(noteFile, previousBytes, FileUtil.readBytes(file));
+        relocateNotes(noteFile, previousBytes, readCurrentBytes(file));
         populateIdentity(noteFile, file, currentVersion);
         saveNote(noteFile);
 
@@ -883,6 +897,21 @@ public class NoteFileServiceImpl implements NoteFileService {
     private String toMd5Hex16(byte[] digestBytes) {
         String fullMd5 = HexFormat.of().formatHex(digestBytes);
         return fullMd5.substring(8, 24);
+    }
+
+    private boolean canDigestFromFile(File file) {
+        try {
+            Path path = file.toPath();
+            return Files.isRegularFile(path) && Files.isReadable(path);
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    private byte[] readCurrentBytes(File file) throws IOException {
+        try (InputStream inputStream = Files.newInputStream(file.toPath())) {
+            return inputStream.readAllBytes();
+        }
     }
 
     private String normalizeMigrationPrefix(String prefix) {

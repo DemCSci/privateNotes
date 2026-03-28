@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.8.12
+
+- 跳过 socket 和其它非常规文件的批量文件变更处理，避免 `FileSystemException: Operation not supported on socket`
+- 当前文件内容不可读时，私人注释版本更新改为安全降级，不再中断后续流程
+
 ## v1.8.11
 
 - 重新发布正确的 GitHub Release 版本，避免 `v1.8.10` 因错误 tag 指向旧提交而生成 `1.8.9` 资产

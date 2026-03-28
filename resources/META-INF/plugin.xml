@@ -1,7 +1,7 @@
 <idea-plugin>
     <id>TheBlind.privateNotes</id>
     <name>Private Notes</name>
-    <version>1.8.11</version>
+    <version>1.8.12</version>
     <vendor email="1043193478@qq.com" url="https://gitee.com/The-Blind/private-notes">TheBlind</vendor>
 
     <description><![CDATA[
@@ -35,6 +35,11 @@
     ]]></description>
 
     <change-notes><![CDATA[
+      <h3>v1.8.12 update</h3>
+      <ul>
+          <li>skip socket and other non-regular files during bulk file change handling</li>
+          <li>fallback safely when current file bytes cannot be read during note version updates</li>
+      </ul>
       <h3>v1.8.11 update</h3>
       <ul>
           <li>publish a clean release after correcting the mis-tagged v1.8.10 release flow</li>
